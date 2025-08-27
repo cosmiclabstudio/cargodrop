@@ -19,44 +19,62 @@ func NewMainWindow(a fyne.App) fyne.Window {
 	w.Resize(fyne.NewSize(900, 500))
 	w.CenterOnScreen()
 
-	// Progress bar (responsive width, 6px height, percentage text inside)
-	progress := widget.NewProgressBar()
-	progress.SetValue(0.45)
-	progress.Resize(fyne.NewSize(0, 6))
-	progress.TextFormatter = func() string {
-		return "45% (23/92)"
-	}
+	// Custom progress bar (responsive width, 6px height, custom text)
+	bar := widget.NewProgressBar()
+	bar.Resize(fyne.NewSize(0, 16))
+	bar.SetValue(0.45)
 
-	progressBar := container.NewStack(progress)
+	// additional text
+	barLeft := canvas.NewText("Downloading [1.20.1] [Sinytra] Hybrid Aquatic 1.4.4.jar...", color.White)
+	barRight := canvas.NewText("(280.40 KB/3.4 MB)", color.White)
+	progressBar := container.NewStack(
+		bar,
+		container.NewHBox(
+			barLeft,
+			layout.NewSpacer(),
+			barRight,
+		),
+	)
 
 	// Log area (scrollable, read-only, white text, monospace font)
 	logVBox := container.NewVBox()
-	if data, err := os.ReadFile("internal/gui/demo_log.txt"); err == nil {
-		for _, line := range strings.Split(string(data), "\n") {
-			if line != "" {
-				logText := canvas.NewText(line, color.White)
-				logText.TextSize = 14
-				logText.TextStyle = fyne.TextStyle{Monospace: true}
-				logVBox.Add(logText)
-			}
-		}
-	}
 	logScroller := container.NewVScroll(logVBox)
 	logScroller.SetMinSize(fyne.NewSize(900, 460))
+
+	// Simulate log file printing, 1 second per line
+	go func() {
+		if data, err := os.ReadFile("cmd/demofiles/demo_log.txt"); err == nil {
+			for _, line := range strings.Split(string(data), "\n") {
+				if line != "" {
+					logText := canvas.NewText(line, color.White)
+					logText.TextSize = 14
+					logText.TextStyle = fyne.TextStyle{Monospace: true}
+					logVBox.Add(logText)
+					logScroller.ScrollToBottom()
+				}
+			}
+		}
+	}()
 
 	// Credit (small, white, emoji, centered)
 	credit := canvas.NewText("Made with ❤️ by Cosmic Lab Studio", color.White)
 	credit.TextSize = 12
 
+	resourceName := canvas.NewText("All Things Considered SMP", color.White)
+	resourceName.TextSize = 12
+
 	w.SetContent(container.NewVBox(
 		logScroller,
 		progressBar,
 		container.NewHBox(
+			resourceName,
 			layout.NewSpacer(),
 			credit,
-			layout.NewSpacer(),
 		),
 	))
+
+	w.Resize(fyne.NewSize(900, 500))
+	w.CenterOnScreen()
 
 	return w
 }
