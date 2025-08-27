@@ -1,0 +1,27 @@
+{
+  "name": "Modpack Name",
+  "local_version": "1.5.0",
+  "resource_set_hash": "792f0e6e3d9b44e2e4f81b4a0dfb7c22",
+  "resources": [
+    {
+      "filename": "letmedespawn.jar",
+      "location": "mods",
+      "hash": "eebc9b4f6b5342d7f7e1120e0a27c2e5"
+    },
+    {
+      "filename": "naturecompass.jar",
+      "location": "mods",
+      "hash": "e9a2c6d2b2d8c8d4aee5f5a6b8c4e7f1"
+    },
+    {
+      "filename": "create-6.0.7.jar",
+      "location": "mods",
+      "hash": "c0b8e5f9a3e4b9c1d2a7e3c5f7a8b1e6"
+    },
+    {
+      "filename": "experience-the-grandest-revision.2.zip",
+      "location": "config/paxi",
+      "hash": "eda10d385cf97bd72e676497088502bf"
+    }
+  ]
+}
