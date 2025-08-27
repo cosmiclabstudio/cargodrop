@@ -1,0 +1,9 @@
+{
+  "name": "Modpack Name",
+  "welcome_message": "Welcome to my Minecraft Modpack!",
+  "folders": [
+    "config/paxi",
+    "mods"
+  ],
+  "update_server": "https://yourmodpackserver.com/updates"
+}
