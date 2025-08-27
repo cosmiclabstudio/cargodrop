@@ -1,12 +1,9 @@
 {
   // Name of the service. Shown at the bottom left of the updater window.
-  "name": "All Things Considered SMP",
+  "name": "Modpack Name",
 
   // Welcome message shown when the updater starts.
-  "welcome_message": "\
-  Welcome to All Things Considered!\
-  Join our Discord for support and help!: https://discord.gg/yourserver\
-  ",
+  "welcome_message": "Welcome to my Minecraft Modpack!",
 
   // Goodbye message shown after update completes.
   "goodbye_message": "Please enjoy yourself at home!",
