@@ -1,0 +1,22 @@
+{
+  // Name of the service. Shown at the bottom left of the updater window.
+  "name": "All Things Considered SMP",
+
+  // Welcome message shown when the updater starts.
+  "welcome_message": "\
+  Welcome to All Things Considered!\
+  Join our Discord for support and help!: https://discord.gg/yourserver\
+  ",
+
+  // Goodbye message shown after update completes.
+  "goodbye_message": "Please enjoy yourself at home!",
+
+  // Folders to scan for missing resources.
+  "folders": [
+    "config/paxi",
+    "mods"
+  ],
+
+  // URL where the updater fetches updates and the resource list (resources.json) from.
+  "update_server": "https://yourmodpackserver.com/updates/"
+}
