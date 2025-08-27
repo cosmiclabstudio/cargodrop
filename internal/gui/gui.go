@@ -1,20 +1,56 @@
 package gui
 
 import (
+	"fmt"
 	"image/color"
-	"os"
 	"strings"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/layout"
+	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
+	"github.com/cosmiclabstudio/cargodrop/internal/parsers"
+	"github.com/cosmiclabstudio/cargodrop/internal/utils"
 )
 
+// apparently i want to use multiline input but the framework said my stuff my rule
+type customTheme struct{}
+
+func (t *customTheme) Color(name fyne.ThemeColorName, variant fyne.ThemeVariant) color.Color {
+	if name == theme.ColorNameDisabled {
+		return color.White
+	}
+	return theme.DefaultTheme().Color(name, variant)
+}
+
+func (t *customTheme) Icon(name fyne.ThemeIconName) fyne.Resource {
+	return theme.DefaultTheme().Icon(name)
+}
+
+func (t *customTheme) Font(style fyne.TextStyle) fyne.Resource {
+	return theme.DefaultTheme().Font(style)
+}
+
+func (t *customTheme) Size(name fyne.ThemeSizeName) float32 {
+	return theme.DefaultTheme().Size(name)
+}
+
+// MainWindow wraps fyne.Window to provide additional functionality
+type MainWindow struct {
+	Window         fyne.Window
+	UpdateProgress func(fileName string, downloadedBytes, totalBytes int64, processed, total int)
+	HandleError    func(message string, err error)
+}
+
 // NewMainWindow creates and returns the main window for the app
-func NewMainWindow(a fyne.App) fyne.Window {
-	w := a.NewWindow("cargodrop updater")
+func NewMainWindow(a fyne.App, config *parsers.Config, resources *parsers.ResourceSet) *MainWindow {
+	// Apply custom theme to keep disabled text white
+	a.Settings().SetTheme(&customTheme{})
+
+	w := a.NewWindow(config.Name + " Updater")
 	w.SetMaster()
 	w.Resize(fyne.NewSize(900, 500))
 	w.CenterOnScreen()
@@ -22,11 +58,10 @@ func NewMainWindow(a fyne.App) fyne.Window {
 	// Custom progress bar (responsive width, 6px height, custom text)
 	bar := widget.NewProgressBar()
 	bar.Resize(fyne.NewSize(0, 16))
-	bar.SetValue(0.45)
+	bar.SetValue(0)
 
-	// additional text
-	barLeft := canvas.NewText("Downloading [1.20.1] [Sinytra] Hybrid Aquatic 1.4.4.jar...", color.White)
-	barRight := canvas.NewText("(280.40 KB/3.4 MB)", color.White)
+	barLeft := canvas.NewText("Please wait!", color.White)
+	barRight := canvas.NewText("(0/0)", color.White)
 	progressBar := container.NewStack(
 		bar,
 		container.NewHBox(
@@ -36,45 +71,98 @@ func NewMainWindow(a fyne.App) fyne.Window {
 		),
 	)
 
-	// Log area (scrollable, read-only, white text, monospace font)
-	logVBox := container.NewVBox()
-	logScroller := container.NewVScroll(logVBox)
-	logScroller.SetMinSize(fyne.NewSize(900, 460))
+	// Log area using MultiLineEntry with disabled state but white text
+	logEntry := widget.NewMultiLineEntry()
+	logEntry.Wrapping = fyne.TextWrapWord
+	logEntry.TextStyle = fyne.TextStyle{Monospace: true}
+	logEntry.Disable()
+	logEntry.Text = ""
 
-	// Simulate log file printing, 1 second per line
-	go func() {
-		if data, err := os.ReadFile("cmd/demofiles/demo_log.txt"); err == nil {
-			for _, line := range strings.Split(string(data), "\n") {
-				if line != "" {
-					logText := canvas.NewText(line, color.White)
-					logText.TextSize = 14
-					logText.TextStyle = fyne.TextStyle{Monospace: true}
-					logVBox.Add(logText)
-					logScroller.ScrollToBottom()
-				}
+	// Function to append log lines to the log area and update barLeft
+	appendLog := func(line string) {
+		line = strings.TrimRight(line, "\n")
+		logEntry.SetText(logEntry.Text + line + "\n")
+		logEntry.CursorRow = len(strings.Split(logEntry.Text, "\n"))
+		logEntry.Refresh()
+		if strings.HasPrefix(line, "Downloading ") {
+			parts := strings.SplitN(line, " ", 2)
+			if len(parts) == 2 {
+				barLeft.Text = "Downloading " + parts[1]
+				barLeft.Refresh()
 			}
+		} else {
+			barLeft.Text = "Please wait!"
+			barLeft.Refresh()
 		}
-	}()
+	}
 
-	// Credit (small, white, emoji, centered)
-	credit := canvas.NewText("Made with ❤️ by Cosmic Lab Studio", color.White)
-	credit.TextSize = 12
+	// Register GUI log callback
+	utils.RegisterGuiLogCallback(appendLog)
 
-	resourceName := canvas.NewText("All Things Considered SMP", color.White)
-	resourceName.TextSize = 12
+	// Progress update function
+	updateProgress := func(fileName string, downloadedBytes, totalBytes int64, processed, total int) {
+		var percent float64
+		if total > 0 {
+			percent = float64(processed) / float64(total)
+		} else {
+			percent = 1.0
+		}
+		bar.SetValue(percent)
+		if totalBytes > 0 {
+			barRight.Text = utils.FormatSize(downloadedBytes) + "/" + utils.FormatSize(totalBytes)
+		} else {
+			barRight.Text = fmt.Sprintf("%d/%d", processed, total)
+		}
+		barRight.Refresh()
+		if fileName != "" {
+			barLeft.Text = "Downloading " + fileName + "..."
+			barLeft.Refresh()
+		}
+	}
 
-	w.SetContent(container.NewVBox(
-		logScroller,
+	// Error handling function
+	handleError := func(message string, err error) {
+		dialog.ShowInformation(
+			"Failed to update resources",
+			"Please report this issue to your server administrator along with the log.\nYou may close this window to continue launching your game.",
+			w)
+
+		utils.LogMessage("Failed to update resources...")
+		utils.LogMessage("You may close this window to continue launching your game.")
+	}
+
+	creditLeft := canvas.NewText("CargoDrop ver.1.0", color.White)
+	creditLeft.TextSize = 12
+	creditRight := canvas.NewText("Made with ❤️ by Cosmic Lab Studio", color.White)
+	creditRight.TextSize = 12
+
+	// Bottom section with progress and credits
+	bottomSection := container.NewVBox(
 		progressBar,
 		container.NewHBox(
-			resourceName,
+			creditLeft,
 			layout.NewSpacer(),
-			credit,
+			creditRight,
 		),
-	))
+	)
+
+	// Use BorderContainer to give log area proper space
+	mainContainer := container.NewBorder(
+		nil,           // top
+		bottomSection, // bottom
+		nil,           // left
+		nil,           // right
+		logEntry,      // center (gets remaining space)
+	)
+
+	w.SetContent(mainContainer)
 
 	w.Resize(fyne.NewSize(900, 500))
 	w.CenterOnScreen()
 
-	return w
+	return &MainWindow{
+		Window:         w,
+		UpdateProgress: updateProgress,
+		HandleError:    handleError,
+	}
 }
