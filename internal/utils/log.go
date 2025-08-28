@@ -2,7 +2,6 @@ package utils
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"time"
 )
@@ -21,44 +20,49 @@ func RegisterGuiLogCallback(cb func(string)) {
 	guiLogCallback = cb
 }
 
+// InitializeLog clears the log file at program startup
+func InitializeLog() error {
+	f, err := os.OpenFile("cargodrop.log", os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
+	if err != nil {
+		return err
+	}
+	return f.Close()
+}
+
 // LogMessage logs an info message with timestamp in blue and to GUI if set.
 func LogMessage(msg string) {
 	timestamp := time.Now().Format("2006-01-02 15:04:05")
 	formatted := fmt.Sprintf("[%s] %s", timestamp, msg)
-	fmt.Printf("%s%s%s\n", ColorBlue, formatted, ColorReset)
 	if guiLogCallback != nil {
 		guiLogCallback(formatted)
 	}
-	LogToFile("cargodrop.log", formatted)
+	_ = LogToFile("cargodrop.log", formatted)
 }
 
 // LogError logs an error message with timestamp in red and to GUI if set.
 func LogError(err error) {
 	timestamp := time.Now().Format("2006-01-02 15:04:05")
 	formatted := fmt.Sprintf("[%s] ERROR: %v", timestamp, err)
-	log.Printf("%s%s%s\n", ColorRed, formatted, ColorReset)
 	if guiLogCallback != nil {
 		guiLogCallback(formatted)
 	}
-	LogToFile("cargodrop.log", formatted)
+	_ = LogToFile("cargodrop.log", formatted)
 }
 
 // LogWarning logs a warning message with timestamp in yellow and to GUI if set.
 func LogWarning(msg string) {
 	timestamp := time.Now().Format("2006-01-02 15:04:05")
 	formatted := fmt.Sprintf("[%s] WARNING: %s", timestamp, msg)
-	fmt.Printf("%s%s%s\n", ColorYellow, formatted, ColorReset)
 	if guiLogCallback != nil {
 		guiLogCallback(formatted)
 	}
-	LogToFile("cargodrop.log", formatted)
+	_ = LogToFile("cargodrop.log", formatted)
 }
 
 // LogRaw logging raw without timestamp. This is only for the introduction and some field in the config
 // never get saved into the logfile.
 func LogRaw(msg string) {
 	formatted := fmt.Sprintf("%s", msg)
-	fmt.Printf("%s%s%s\n", ColorBlue, formatted, ColorReset)
 	if guiLogCallback != nil {
 		guiLogCallback(formatted)
 	}
@@ -70,8 +74,7 @@ func LogToFile(filename, msg string) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
-	timestamp := time.Now().Format("2006-01-02 15:04:05")
-	_, err = f.WriteString(fmt.Sprintf("[%s] %s\n", timestamp, msg))
+	defer func() { _ = f.Close() }()
+	_, err = f.WriteString(fmt.Sprintf("%s\n", msg))
 	return err
 }

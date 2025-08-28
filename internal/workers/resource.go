@@ -1,8 +1,6 @@
 package workers
 
 import (
-	"crypto/md5"
-	"encoding/hex"
 	"io"
 	"net/http"
 	"os"
@@ -12,34 +10,26 @@ import (
 	"github.com/cosmiclabstudio/cargodrop/internal/utils"
 )
 
-// ComputeFileHash computes the MD5 hash of a file at the given path
-func ComputeFileHash(path string) (string, error) {
-	f, err := os.Open(path)
-	if err != nil {
-		return "", err
-	}
-	defer func(f *os.File) {
-		err := f.Close()
-		if err != nil {
-		}
-	}(f)
-
-	h := md5.New()
-	if _, err := io.Copy(h, f); err != nil {
-		return "", err
-	}
-	return hex.EncodeToString(h.Sum(nil)), nil
-}
-
 // CheckResources compares local files to expected hashes and returns resources needing update
 func CheckResources(rs *parsers.ResourceSet, baseDir string) []parsers.Resource {
 	var toUpdate []parsers.Resource
 	for _, r := range rs.Resources {
-		localPath := filepath.Join(baseDir, r.Location, r.Filename)
-		localHash, err := ComputeFileHash(localPath)
+		localPath := filepath.Join(baseDir, r.Path)
+
+		// Check if file exists
+		if _, err := os.Stat(localPath); os.IsNotExist(err) {
+			// File doesn't exist, needs to be downloaded
+			toUpdate = append(toUpdate, r)
+			continue
+		}
+
+		// File exists, compare SHA1 hash
+		localHash, err := utils.GenerateSHA1(localPath)
 		if err != nil || localHash != r.Hash {
+			// Hash mismatch or error reading file, needs update
 			toUpdate = append(toUpdate, r)
 		}
+		// If hash matches, file is up to date (no logging needed)
 	}
 	return toUpdate
 }
