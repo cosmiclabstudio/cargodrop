@@ -13,20 +13,19 @@ import (
 )
 
 func main() {
+	baseDir := flag.String("base-dir", ".", "The directory containing the base files")
 	configPath := flag.String("config", "", "Path to config file")
 	resourcesPath := flag.String("resources", "", "Path to resources file")
 	isGenResource := flag.Bool("generate-metadata", false, "Whether to generate metadata for server")
 	isServiceModrinth := flag.Bool("modrinth", false, "Use Modrinth to add download links")
 	flag.Parse()
 
-	utils.LogMessage("Config file: " + *configPath)
-	utils.LogMessage("Resources file: " + *resourcesPath)
-
 	config, err := parsers.LoadConfig(*configPath)
 	if err != nil {
 		utils.LogError(err)
 		return
 	}
+	utils.LogMessage("Config file: " + *configPath)
 
 	resources, err := parsers.LoadResource(*resourcesPath)
 	if err != nil {
@@ -34,6 +33,7 @@ func main() {
 			Name:            config.Name,
 			LocalVersion:    "1.0.0",
 			ResourceSetHash: "",
+			Patches:         []parsers.Patches{},
 			Resources:       []parsers.Resource{},
 		}
 
@@ -45,6 +45,7 @@ func main() {
 		}
 		utils.LogWarning("Missing resource.json! Creating one at " + *resourcesPath)
 	}
+	utils.LogMessage("Resources file: " + *resourcesPath)
 
 	a := app.New()
 	mw := gui.NewMainWindow(a, config, resources)
@@ -58,9 +59,9 @@ func main() {
 	go func() {
 		if *isGenResource {
 			utils.LogMessage("Generating metadata for server...")
-			workers.RunGenSourceSequence(config, resources, ".", *resourcesPath, mw.UpdateProgress, mw.HandleError, *isServiceModrinth)
+			workers.RunGenSourceSequence(config, resources, *baseDir, *resourcesPath, mw.UpdateProgress, mw.HandleError, *isServiceModrinth)
 		} else {
-			workers.RunUpdateSequence(config, resources, ".", mw.UpdateProgress, mw.HandleError)
+			workers.RunUpdateSequence(config, resources, *baseDir, *resourcesPath, mw.UpdateProgress, mw.HandleError)
 		}
 	}()
 

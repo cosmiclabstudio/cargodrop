@@ -134,7 +134,7 @@ func NewMainWindow(a fyne.App, config *parsers.Config, resources *parsers.Resour
 		utils.LogMessage("You may close this window to continue launching your game.")
 	}
 
-	creditLeft := canvas.NewText("CargoDrop ver.1.0 (build abcd1234)", color.White)
+	creditLeft := canvas.NewText(utils.GetFullVersionString(), color.White)
 	creditLeft.TextSize = 12
 	creditRight := canvas.NewText("Made with ❤️ by Cosmic Lab Studio", color.White)
 	creditRight.TextSize = 12
