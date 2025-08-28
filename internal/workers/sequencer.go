@@ -11,9 +11,9 @@ import (
 )
 
 // RunUpdateSequence sequence for the app to start updating stuff
-func RunUpdateSequence(config *parsers.Config, resources *parsers.ResourceSet, baseDir string, progressCb func(fileName string, downloadedBytes, totalBytes int64, processed, total int), errorCb func(string, error)) {
+func RunUpdateSequence(config *parsers.Config, resources *parsers.ResourceSet, baseDir string, resourcePath string, progressCb func(fileName string, downloadedBytes, totalBytes int64, processed, total int), errorCb func(string, error)) {
 	// some introduction
-	utils.LogRaw("Cargodrop ver.1.0 by Cosmic Lab Studio")
+	utils.LogRaw(utils.GetFullVersionString())
 	utils.LogRaw("By using this software, you agree to the Terms of Conditions and the License of this program.")
 	utils.LogRaw("Read more at: https://github.com/cosmiclabstudio/cargodrop") // TODO: Replace this link
 
@@ -24,8 +24,7 @@ func RunUpdateSequence(config *parsers.Config, resources *parsers.ResourceSet, b
 	// Download resources.json from server
 	utils.LogMessage("Checking for updates...")
 
-	resourcesPath := filepath.Join(baseDir, "resources.json")
-	err := DownloadFile(config.UpdateServer, resourcesPath, "cargodrop.json", 0, func(fileName string, downloadedBytes, totalBytes int64) {
+	err := DownloadFile(config.UpdateServer, resourcePath, "resources.json", 0, func(fileName string, downloadedBytes, totalBytes int64) {
 		// callback
 	})
 	if err != nil {
@@ -35,7 +34,7 @@ func RunUpdateSequence(config *parsers.Config, resources *parsers.ResourceSet, b
 	}
 
 	// Parse the downloaded resources.json file
-	remoteSet, err := parsers.LoadResource(resourcesPath)
+	remoteSet, err := parsers.LoadResource(resourcePath)
 	if err != nil {
 		utils.LogError(err)
 		errorCb("Failed to parse remote resources file.", err)

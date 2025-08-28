@@ -15,7 +15,7 @@ import (
 
 func RunGenSourceSequence(config *parsers.Config, resources *parsers.ResourceSet, baseDir string, resourcesPath string, progressCb func(fileName string, downloadedBytes, totalBytes int64, processed, total int), errorCb func(string, error), isServiceModrinth bool) {
 	// some introduction
-	utils.LogRaw("Cargodrop ver.1.0 by Cosmic Lab Studio")
+	utils.LogRaw(utils.GetFullVersionString())
 	utils.LogRaw("By using this software, you agree to the Terms of Conditions and the License of this program.")
 	utils.LogRaw("Read more at: https://github.com/cosmiclabstudio/cargodrop") // TODO: Replace this link
 

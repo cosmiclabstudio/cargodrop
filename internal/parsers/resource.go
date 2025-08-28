@@ -12,10 +12,16 @@ type Resource struct {
 	URL  string `json:"url"`
 }
 
+type Patches struct {
+	Version string `json:"version"`
+	URL     string `json:"url"`
+}
+
 type ResourceSet struct {
 	Name            string     `json:"name"`
 	LocalVersion    string     `json:"version"`
 	ResourceSetHash string     `json:"resource_set_hash"`
+	Patches         []Patches  `json:"patches"`
 	Resources       []Resource `json:"resources"`
 }
 

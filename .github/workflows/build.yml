@@ -1,0 +1,80 @@
+name: Build CargoDrop
+
+on:
+  push:
+    branches: [ build ]
+  pull_request:
+    branches: [ build ]
+  release:
+    types: [ published ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        goos: [linux, windows]
+        goarch: [amd64]
+        include:
+          - goos: linux
+            goarch: amd64
+            ext: ""
+          - goos: windows
+            goarch: amd64
+            ext: ".exe"
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Needed for git rev-parse to work
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.21'
+
+    - name: Get dependencies
+      run: go mod download
+
+    - name: Get build info
+      id: build_info
+      run: |
+        echo "commit_hash=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+        echo "build_date=$(date -u +'%Y-%m-%d_%H-%M-%S')" >> $GITHUB_OUTPUT
+
+    - name: Build
+      env:
+        GOOS: ${{ matrix.goos }}
+        GOARCH: ${{ matrix.goarch }}
+      run: |
+        go build \
+          -ldflags "-X github.com/cosmiclabstudio/cargodrop/internal/utils.BuildHash=${{ steps.build_info.outputs.commit_hash }}" \
+          -o cargodrop-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }} \
+          ./cmd/cargodrop
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: cargodrop-${{ matrix.goos }}-${{ matrix.goarch }}
+        path: cargodrop-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }}
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release'
+
+    steps:
+    - name: Download all artifacts
+      uses: actions/download-artifact@v4
+
+    - name: Display structure of downloaded files
+      run: ls -la
+
+    - name: Upload release assets
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          cargodrop-linux-amd64/cargodrop-linux-amd64
+          cargodrop-windows-amd64/cargodrop-windows-amd64.exe
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
