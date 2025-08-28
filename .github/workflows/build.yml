@@ -8,9 +8,14 @@ on:
   release:
     types: [ published ]
 
+permissions:
+  contents: write
+  packages: write
+
 jobs:
   build:
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -48,6 +53,22 @@ jobs:
       uses: actions/setup-go@v5
       with:
         go-version: '1.21'
+        cache: true
+
+    - name: Set Go module proxy (Unix)
+      if: matrix.os != 'windows-latest'
+      run: |
+        go env -w GOPROXY=https://proxy.golang.org,direct
+        go env -w GOSUMDB=sum.golang.org
+
+    - name: Set Go module proxy (Windows)
+      if: matrix.os == 'windows-latest'
+      run: |
+        go env -w GOPROXY=https://proxy.golang.org,direct
+        go env -w GOSUMDB=sum.golang.org
+
+    - name: Download Go modules
+      run: go mod download
 
     - name: Install Linux dependencies
       if: matrix.goos == 'linux'
@@ -173,7 +194,6 @@ jobs:
           combined-builds/cargodrop-darwin-amd64
           combined-builds/cargodrop-darwin-arm64
         prerelease: true
-        make_latest: false
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
