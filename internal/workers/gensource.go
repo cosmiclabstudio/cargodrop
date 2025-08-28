@@ -13,7 +13,7 @@ import (
 	"github.com/cosmiclabstudio/cargodrop/internal/utils"
 )
 
-func RunGenSourceSequence(config *parsers.Config, resources *parsers.ResourceSet, baseDir string, resourcesPath string, progressCb func(fileName string, downloadedBytes, totalBytes int64, processed, total int), errorCb func(string, error)) {
+func RunGenSourceSequence(config *parsers.Config, resources *parsers.ResourceSet, baseDir string, resourcesPath string, progressCb func(fileName string, downloadedBytes, totalBytes int64, processed, total int), errorCb func(string, error), isServiceModrinth bool) {
 	// some introduction
 	utils.LogRaw("Cargodrop ver.1.0 by Cosmic Lab Studio")
 	utils.LogRaw("By using this software, you agree to the Terms of Conditions and the License of this program.")
@@ -23,6 +23,11 @@ func RunGenSourceSequence(config *parsers.Config, resources *parsers.ResourceSet
 
 	utils.LogMessage("Resource name: " + resources.Name)
 	utils.LogMessage("Version: " + resources.LocalVersion)
+
+	if isServiceModrinth {
+		utils.LogMessage("Using Modrinth Provider.")
+	}
+
 	utils.LogMessage("Please wait...")
 
 	utils.LogMessage("Scanning folders: " + fmt.Sprintf("%v", config.Folders))
@@ -85,10 +90,12 @@ func RunGenSourceSequence(config *parsers.Config, resources *parsers.ResourceSet
 			// just in case we want to use other provider
 			url, err := "", nil
 
-			url, err = api.GetModrinthURL(hash, filename)
-			if err != nil {
-				utils.LogError(fmt.Errorf("", filename, err))
-				return err
+			if isServiceModrinth {
+				url, err = api.GetModrinthURL(hash, filename)
+				if err != nil {
+					utils.LogError(fmt.Errorf("", filename, err))
+					return err
+				}
 			}
 
 			// Create resource entry

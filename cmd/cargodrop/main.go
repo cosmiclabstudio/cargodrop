@@ -16,6 +16,7 @@ func main() {
 	configPath := flag.String("config", "", "Path to config file")
 	resourcesPath := flag.String("resources", "", "Path to resources file")
 	isGenResource := flag.Bool("generate-metadata", false, "Whether to generate metadata for server")
+	isServiceModrinth := flag.Bool("modrinth", false, "Use Modrinth to add download links")
 	flag.Parse()
 
 	utils.LogMessage("Config file: " + *configPath)
@@ -57,7 +58,7 @@ func main() {
 	go func() {
 		if *isGenResource {
 			utils.LogMessage("Generating metadata for server...")
-			workers.RunGenSourceSequence(config, resources, ".", *resourcesPath, mw.UpdateProgress, mw.HandleError)
+			workers.RunGenSourceSequence(config, resources, ".", *resourcesPath, mw.UpdateProgress, mw.HandleError, *isServiceModrinth)
 		} else {
 			workers.RunUpdateSequence(config, resources, ".", mw.UpdateProgress, mw.HandleError)
 		}
