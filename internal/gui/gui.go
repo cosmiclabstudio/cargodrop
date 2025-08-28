@@ -80,20 +80,22 @@ func NewMainWindow(a fyne.App, config *parsers.Config, resources *parsers.Resour
 
 	// Function to append log lines to the log area and update barLeft
 	appendLog := func(line string) {
-		line = strings.TrimRight(line, "\n")
-		logEntry.SetText(logEntry.Text + line + "\n")
-		logEntry.CursorRow = len(strings.Split(logEntry.Text, "\n"))
-		logEntry.Refresh()
-		if strings.HasPrefix(line, "Downloading ") {
-			parts := strings.SplitN(line, " ", 2)
-			if len(parts) == 2 {
-				barLeft.Text = "Downloading " + parts[1]
-				barLeft.Refresh()
+		fyne.Do(func() {
+			line = strings.TrimRight(line, "\n")
+			logEntry.SetText(logEntry.Text + line + "\n")
+			logEntry.CursorRow = len(strings.Split(logEntry.Text, "\n"))
+			logEntry.Refresh()
+
+			if strings.Contains(line, "Done!") {
+				barLeft.Text = "Done!"
+			} else if strings.Contains(line, "Processing: ") || strings.Contains(line, "Downloading: ") {
+				parts := strings.SplitN(line, " ", 5)
+				barLeft.Text = parts[3]
+			} else {
+				barLeft.Text = "Please wait!"
 			}
-		} else {
-			barLeft.Text = "Please wait!"
 			barLeft.Refresh()
-		}
+		})
 	}
 
 	// Register GUI log callback
@@ -101,37 +103,40 @@ func NewMainWindow(a fyne.App, config *parsers.Config, resources *parsers.Resour
 
 	// Progress update function
 	updateProgress := func(fileName string, downloadedBytes, totalBytes int64, processed, total int) {
-		var percent float64
-		if total > 0 {
-			percent = float64(processed) / float64(total)
-		} else {
-			percent = 1.0
-		}
-		bar.SetValue(percent)
-		if totalBytes > 0 {
-			barRight.Text = utils.FormatSize(downloadedBytes) + "/" + utils.FormatSize(totalBytes)
-		} else {
-			barRight.Text = fmt.Sprintf("%d/%d", processed, total)
-		}
-		barRight.Refresh()
-		if fileName != "" {
-			barLeft.Text = "Downloading " + fileName + "..."
-			barLeft.Refresh()
-		}
+		fyne.Do(func() {
+			var percent float64
+			if total > 0 {
+				percent = float64(processed) / float64(total)
+			} else {
+				percent = 1.0
+			}
+			bar.SetValue(percent)
+
+			// If totalBytes is 0, we're in generating metadata mode, show file count instead
+			if totalBytes == 0 {
+				barRight.Text = fmt.Sprintf("%d/%d", processed, total)
+			} else {
+				// In updater mode, show download progress
+				barRight.Text = utils.FormatSize(downloadedBytes) + "/" + utils.FormatSize(totalBytes)
+			}
+			barRight.Refresh()
+		})
 	}
 
 	// Error handling function
 	handleError := func(message string, err error) {
-		dialog.ShowInformation(
-			"Failed to update resources",
-			"Please report this issue to your server administrator along with the log.\nYou may close this window to continue launching your game.",
-			w)
+		fyne.Do(func() {
+			dialog.ShowInformation(
+				"Failed to update resources",
+				"Please report this issue to your server administrator along with the log.\nYou may close this window to continue launching your game.",
+				w)
+		})
 
 		utils.LogMessage("Failed to update resources...")
 		utils.LogMessage("You may close this window to continue launching your game.")
 	}
 
-	creditLeft := canvas.NewText("CargoDrop ver.1.0", color.White)
+	creditLeft := canvas.NewText("CargoDrop ver.1.0 (build abcd1234)", color.White)
 	creditLeft.TextSize = 12
 	creditRight := canvas.NewText("Made with ❤️ by Cosmic Lab Studio", color.White)
 	creditRight.TextSize = 12
@@ -160,9 +165,11 @@ func NewMainWindow(a fyne.App, config *parsers.Config, resources *parsers.Resour
 	w.Resize(fyne.NewSize(900, 500))
 	w.CenterOnScreen()
 
-	return &MainWindow{
+	mw := &MainWindow{
 		Window:         w,
 		UpdateProgress: updateProgress,
 		HandleError:    handleError,
 	}
+
+	return mw
 }
