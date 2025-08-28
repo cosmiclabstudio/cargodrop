@@ -127,6 +127,8 @@ jobs:
     if: github.event_name != 'release'  # Only run when NOT a release
 
     steps:
+    - uses: actions/checkout@v4
+
     - name: Download all artifacts
       uses: actions/download-artifact@v4
 
@@ -141,9 +143,43 @@ jobs:
         cp cargodrop-darwin-amd64/cargodrop combined-builds/cargodrop-darwin-amd64
         cp cargodrop-darwin-arm64/cargodrop combined-builds/cargodrop-darwin-arm64
 
-    - name: Upload combined artifacts
+    - name: Get commit info
+      id: commit
+      run: |
+        echo "hash=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+        echo "date=$(date +'%Y%m%d-%H%M')" >> $GITHUB_OUTPUT
+
+    - name: Create or update development release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: "dev-${{ steps.commit.outputs.date }}-${{ steps.commit.outputs.hash }}"
+        name: "Development Build ${{ steps.commit.outputs.date }}-${{ steps.commit.outputs.hash }}"
+        body: |
+          🚧 **Development Build** 🚧
+          
+          **Commit:** ${{ steps.commit.outputs.hash }}
+          **Built:** ${{ steps.commit.outputs.date }}
+          
+          This is an automated development build. Download speeds are much faster than artifacts!
+          
+          **Downloads:**
+          - `cargodrop-linux-amd64` - Linux x86_64
+          - `cargodrop-windows-amd64.exe` - Windows x86_64  
+          - `cargodrop-darwin-amd64` - macOS Intel
+          - `cargodrop-darwin-arm64` - macOS Apple Silicon
+        files: |
+          combined-builds/cargodrop-linux-amd64
+          combined-builds/cargodrop-windows-amd64.exe
+          combined-builds/cargodrop-darwin-amd64
+          combined-builds/cargodrop-darwin-arm64
+        prerelease: true
+        make_latest: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Upload combined artifacts (backup)
       uses: actions/upload-artifact@v4
       with:
         name: all-builds
         path: combined-builds/
-        retention-days: 30
+        retention-days: 7  # Shorter retention since we have releases
