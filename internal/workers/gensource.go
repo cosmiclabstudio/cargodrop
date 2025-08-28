@@ -99,9 +99,9 @@ func RunGenSourceSequence(config *parsers.Config, resources *parsers.ResourceSet
 				URL:  url,
 			}
 
-			// Preserve existing URL if it exists
+			// Preserve existing URL if it exists, only when there is actual text
 			resourcePath := filepath.Join(folder, filename)
-			if existing, exists := existingResources[resourcePath]; exists {
+			if existing, exists := existingResources[resourcePath]; exists && len(resourcePath) > 0 {
 				resource.URL = existing.URL
 			}
 

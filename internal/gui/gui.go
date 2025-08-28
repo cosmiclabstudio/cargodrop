@@ -86,9 +86,7 @@ func NewMainWindow(a fyne.App, config *parsers.Config, resources *parsers.Resour
 			logEntry.CursorRow = len(strings.Split(logEntry.Text, "\n"))
 			logEntry.Refresh()
 
-			if strings.Contains(line, "Done!") {
-				barLeft.Text = "Done!"
-			} else if strings.Contains(line, "Processing: ") || strings.Contains(line, "Downloading: ") {
+			if strings.Contains(line, "Processing: ") || strings.Contains(line, "Downloading: ") {
 				parts := strings.SplitN(line, " ", 5)
 				barLeft.Text = parts[3]
 			} else {
