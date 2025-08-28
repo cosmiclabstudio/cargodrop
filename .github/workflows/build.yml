@@ -119,3 +119,31 @@ jobs:
           cargodrop-darwin-arm64/cargodrop
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Always create downloadable artifacts for build testing
+  create-downloadable-artifacts:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.event_name != 'release'  # Only run when NOT a release
+
+    steps:
+    - name: Download all artifacts
+      uses: actions/download-artifact@v4
+
+    - name: Display structure of downloaded files
+      run: ls -la
+
+    - name: Create combined artifact
+      run: |
+        mkdir -p combined-builds
+        cp cargodrop-linux-amd64/cargodrop combined-builds/cargodrop-linux-amd64
+        cp cargodrop-windows-amd64/cargodrop.exe combined-builds/cargodrop-windows-amd64.exe
+        cp cargodrop-darwin-amd64/cargodrop combined-builds/cargodrop-darwin-amd64
+        cp cargodrop-darwin-arm64/cargodrop combined-builds/cargodrop-darwin-arm64
+
+    - name: Upload combined artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: all-builds
+        path: combined-builds/
+        retention-days: 30
