@@ -10,18 +10,33 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        goos: [linux, windows]
-        goarch: [amd64]
         include:
-          - goos: linux
+          # Linux builds
+          - os: ubuntu-latest
+            goos: linux
             goarch: amd64
             ext: ""
-          - goos: windows
+            cgo_enabled: "1"
+          # Windows builds
+          - os: ubuntu-latest
+            goos: windows
             goarch: amd64
             ext: ".exe"
+            cgo_enabled: "0"
+          # macOS builds
+          - os: macos-latest
+            goos: darwin
+            goarch: amd64
+            ext: ""
+            cgo_enabled: "1"
+          - os: macos-latest
+            goos: darwin
+            goarch: arm64
+            ext: ""
+            cgo_enabled: "1"
 
     steps:
     - uses: actions/checkout@v4
@@ -33,30 +48,43 @@ jobs:
       with:
         go-version: '1.21'
 
-    - name: Get dependencies
-      run: go mod download
-
-    - name: Get build info
-      id: build_info
+    - name: Install Linux dependencies
+      if: matrix.goos == 'linux'
       run: |
-        echo "commit_hash=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
-        echo "build_date=$(date -u +'%Y-%m-%d_%H-%M-%S')" >> $GITHUB_OUTPUT
+        sudo apt-get update
+        sudo apt-get install -y libgl1-mesa-dev libxcursor-dev libxrandr-dev libxinerama-dev libxi-dev libxxf86vm-dev
+
+    - name: Install Windows cross-compilation dependencies
+      if: matrix.goos == 'windows'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y gcc-mingw-w64
+
+    - name: Get commit hash
+      id: commit
+      run: echo "hash=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
+    - name: Set build variables
+      run: |
+        echo "GOOS=${{ matrix.goos }}" >> $GITHUB_ENV
+        echo "GOARCH=${{ matrix.goarch }}" >> $GITHUB_ENV
+        echo "CGO_ENABLED=${{ matrix.cgo_enabled }}" >> $GITHUB_ENV
+
+    - name: Set Windows cross-compilation variables
+      if: matrix.goos == 'windows'
+      run: |
+        echo "CC=x86_64-w64-mingw32-gcc" >> $GITHUB_ENV
+        echo "CXX=x86_64-w64-mingw32-g++" >> $GITHUB_ENV
 
     - name: Build
-      env:
-        GOOS: ${{ matrix.goos }}
-        GOARCH: ${{ matrix.goarch }}
       run: |
-        go build \
-          -ldflags "-X github.com/cosmiclabstudio/cargodrop/internal/utils.BuildHash=${{ steps.build_info.outputs.commit_hash }}" \
-          -o cargodrop-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }} \
-          ./cmd/cargodrop
+        go build -ldflags "-X main.BuildHash=${{ steps.commit.outputs.hash }}" -o cargodrop${{ matrix.ext }} ./cmd/cargodrop
 
-    - name: Upload artifact
+    - name: Upload artifacts
       uses: actions/upload-artifact@v4
       with:
         name: cargodrop-${{ matrix.goos }}-${{ matrix.goarch }}
-        path: cargodrop-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }}
+        path: cargodrop${{ matrix.ext }}
 
   release:
     needs: build
