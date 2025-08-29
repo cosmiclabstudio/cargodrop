@@ -33,7 +33,7 @@ func main() {
 			Name:            config.Name,
 			LocalVersion:    "1.0.0",
 			ResourceSetHash: "",
-			Patches:         []parsers.Patches{},
+			Patches:         []string{},
 			Resources:       []parsers.Resource{},
 		}
 

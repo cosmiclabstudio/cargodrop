@@ -87,8 +87,9 @@ func NewMainWindow(a fyne.App, config *parsers.Config, resources *parsers.Resour
 			logEntry.Refresh()
 
 			if strings.Contains(line, "Processing: ") || strings.Contains(line, "Downloading: ") {
-				parts := strings.SplitN(line, " ", 5)
-				barLeft.Text = parts[3]
+				parts := strings.SplitN(line, " ", 3)
+				parts2 := strings.Split(parts[2], " (")
+				barLeft.Text = parts2[0]
 			} else {
 				barLeft.Text = "Please wait!"
 			}

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/cosmiclabstudio/cargodrop/internal/api"
 	"github.com/cosmiclabstudio/cargodrop/internal/parsers"
@@ -14,27 +15,85 @@ import (
 )
 
 func RunGenSourceSequence(config *parsers.Config, resources *parsers.ResourceSet, baseDir string, resourcesPath string, progressCb func(fileName string, downloadedBytes, totalBytes int64, processed, total int), errorCb func(string, error), isServiceModrinth bool) {
-	// some introduction
-	utils.LogRaw(utils.GetFullVersionString())
-	utils.LogRaw("By using this software, you agree to the Terms of Conditions and the License of this program.")
-	utils.LogRaw("Read more at: https://github.com/cosmiclabstudio/cargodrop") // TODO: Replace this link
+	utils.GetProgramInformation()
 
-	utils.LogWarning("Generating metadata, this will overwrite your provided resource.json!")
+	utils.LogWarning("Generating metadata, this will overwrite your provided resource file!")
 
 	utils.LogMessage("Resource name: " + resources.Name)
 	utils.LogMessage("Version: " + resources.LocalVersion)
 
+	totalFiles := 0
+	isUsingService := false
+
 	if isServiceModrinth {
+		isUsingService = true
 		utils.LogMessage("Using Modrinth Provider.")
 	}
 
-	utils.LogMessage("Please wait...")
-
 	utils.LogMessage("Scanning folders: " + fmt.Sprintf("%v", config.Folders))
 
+	ignoreMatcher := utils.NewPatternMatcher(config.Ignore)
+	folderMatcher := utils.NewPatternMatcher(config.Folders)
+
+	err := filepath.Walk(baseDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		relPath, err := filepath.Rel(baseDir, path)
+		if err != nil {
+			return err
+		}
+
+		if relPath == "." {
+			return nil
+		}
+
+		if ignoreMatcher.ShouldIgnore(relPath, info.IsDir()) {
+			if info.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+
+		if info.IsDir() {
+			// For directories, we need to be more permissive to allow walking into subdirectories
+			// Check if this directory should be included OR if it could be a parent of an included directory
+			if folderMatcher.ShouldIncludeFolder(relPath) {
+				return nil
+			}
+
+			// Check if this directory could be a parent of any folder pattern
+			for _, pattern := range config.Folders {
+				patternPath := strings.TrimSuffix(pattern, "/")
+				if strings.HasPrefix(patternPath, relPath+"/") || strings.HasPrefix(patternPath, relPath) {
+					return nil
+				}
+			}
+
+			// This directory doesn't match any patterns and isn't a parent of any pattern
+			return filepath.SkipDir
+		} else {
+			// For files, use the fixed ShouldIncludePath logic
+			if !folderMatcher.ShouldIncludePath(relPath) {
+				return nil
+			}
+			totalFiles++
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		utils.LogError(fmt.Errorf("failed to scan folders: %v", err))
+		errorCb("Failed to scan folders", err)
+		return
+	}
+
 	newResources := &parsers.ResourceSet{
-		Name:         config.Name,                                    // Copy from config
-		LocalVersion: utils.IncrementVersion(resources.LocalVersion), // Increment version
+		Name:         config.Name,
+		LocalVersion: utils.IncrementVersion(resources.LocalVersion),
+		Patches:      resources.Patches, // Preserve existing patches
 		Resources:    []parsers.Resource{},
 	}
 
@@ -43,93 +102,114 @@ func RunGenSourceSequence(config *parsers.Config, resources *parsers.ResourceSet
 		existingResources[resource.Path] = &resources.Resources[i]
 	}
 
-	totalFiles := 0
-	for _, folder := range config.Folders {
-		folderPath := filepath.Join(baseDir, folder)
-		err := filepath.Walk(folderPath, func(path string, info os.FileInfo, err error) error {
-			if err != nil {
-				return err
-			}
-			if !info.IsDir() {
-				totalFiles++
-			}
-			return nil
-		})
-		if err != nil {
-			utils.LogError(fmt.Errorf("failed to scan folder %s: %v", folder, err))
-			errorCb("Failed to scan folder "+folder, err)
-			return
-		}
-	}
+	// Track missing URLs for developer notification
+	var missingURLs []string
 
 	processedFiles := 0
-	for _, folder := range config.Folders {
-		folderPath := filepath.Join(baseDir, folder)
-		utils.LogMessage("Processing folder: " + folder)
+	utils.LogMessage("Processing files...")
 
-		err := filepath.Walk(folderPath, func(path string, info os.FileInfo, err error) error {
-			if err != nil {
-				return err
-			}
+	err = filepath.Walk(baseDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
 
+		resourceRelPath, err := filepath.Rel(baseDir, path)
+		if err != nil {
+			return err
+		}
+
+		if resourceRelPath == "." {
+			return nil
+		}
+
+		if ignoreMatcher.ShouldIgnore(resourceRelPath, info.IsDir()) {
 			if info.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+
+		if info.IsDir() {
+			// For directories, we need to be more permissive to allow walking into subdirectories
+			// Check if this directory should be included OR if it could be a parent of an included directory
+			if folderMatcher.ShouldIncludeFolder(resourceRelPath) {
+				// This directory matches a pattern, continue walking
 				return nil
 			}
 
-			filename := info.Name()
-			progressCb(filename, 0, info.Size(), processedFiles, totalFiles)
-			utils.LogMessage("Processing: " + filename + " (" + utils.FormatSize(info.Size()) + ")")
-
-			// Generate SHA1 hash
-			hash, err := utils.GenerateSHA1(path)
-			if err != nil {
-				utils.LogError(fmt.Errorf("failed to generate hash for %s: %v", filename, err))
-				return err
-			}
-
-			// just in case we want to use other provider
-			url, err := "", nil
-
-			if isServiceModrinth {
-				url, err = api.GetModrinthURL(hash, filename)
-				if err != nil {
-					utils.LogError(fmt.Errorf("", filename, err))
-					return err
+			// Check if this directory could be a parent of any folder pattern
+			for _, pattern := range config.Folders {
+				patternPath := strings.TrimSuffix(pattern, "/")
+				// If any folder pattern starts with this directory path, allow walking
+				if strings.HasPrefix(patternPath, resourceRelPath+"/") || strings.HasPrefix(patternPath, resourceRelPath) {
+					return nil // Continue walking, this could lead to a matching folder
 				}
 			}
 
-			// Create resource entry
-			resource := parsers.Resource{
-				Path: filepath.Join(folder, filename),
-				Hash: hash,
-				Size: info.Size(),
-				URL:  url,
-			}
-
-			// Preserve existing URL if it exists, only when there is actual text
-			resourcePath := filepath.Join(folder, filename)
-			if existing, exists := existingResources[resourcePath]; exists && len(resourcePath) > 0 {
-				resource.URL = existing.URL
-			}
-
-			newResources.Resources = append(newResources.Resources, resource)
-			processedFiles++
-			progressCb(filename, info.Size(), info.Size(), processedFiles, totalFiles)
-			return nil
-		})
-
-		if err != nil {
-			utils.LogError(fmt.Errorf("failed to process folder %s: %v", folder, err))
-			errorCb("Failed to process folder "+folder, err)
-			return
+			// This directory doesn't match any patterns and isn't a parent of any pattern
+			return filepath.SkipDir
 		}
+
+		// For files, check if they should be included
+		if !folderMatcher.ShouldIncludePath(resourceRelPath) {
+			return nil
+		}
+
+		filename := info.Name()
+		progressCb(filename, 0, info.Size(), processedFiles, totalFiles)
+		utils.LogMessage("Processing: " + filename + " (" + utils.FormatSize(info.Size()) + ")")
+
+		hash, err := utils.GenerateSHA1(path)
+		if err != nil {
+			utils.LogError(fmt.Errorf("failed to generate hash for %s: %v", filename, err))
+			return err
+		}
+
+		url, err := "", nil
+
+		if isServiceModrinth {
+			url, err = api.GetModrinthURL(hash, filename)
+			if err != nil {
+				utils.LogError(fmt.Errorf("", filename, err))
+				return err
+			}
+		}
+
+		resource := parsers.Resource{
+			Path: resourceRelPath,
+			Hash: hash,
+			Size: info.Size(),
+			URL:  url,
+		}
+
+		if existing, exists := existingResources[resourceRelPath]; exists && len(existing.URL) > 0 {
+			resource.URL = existing.URL
+		}
+
+		// Check if URL is missing after all attempts to get it (including existing resources)
+		if resource.URL == "" && isUsingService {
+			missingURLs = append(missingURLs, filename)
+		}
+
+		newResources.Resources = append(newResources.Resources, resource)
+		processedFiles++
+		progressCb(filename, info.Size(), info.Size(), processedFiles, totalFiles)
+		return nil
+	})
+
+	if err != nil {
+		utils.LogError(fmt.Errorf("failed to process files: %v", err))
+		errorCb("Failed to process files", err)
+		return
 	}
 
-	// Generate resource set hash
+	// Sort resources: entries with URLs first, blank URLs at the bottom
+	sortResourcesByURL(newResources)
+
+	// Generate resource set hash after sorting
 	newResources.ResourceSetHash = generateResourceSetHash(newResources)
 
-	// Save updated resources.json to the original file path
-	err := saveResourceSet(newResources, resourcesPath)
+	err = saveResourceSet(newResources, resourcesPath)
 	if err != nil {
 		utils.LogError(fmt.Errorf("failed to save resources.json: %v", err))
 		errorCb("Failed to save resources.json", err)
@@ -140,11 +220,41 @@ func RunGenSourceSequence(config *parsers.Config, resources *parsers.ResourceSet
 	utils.LogMessage("Resource generation complete!")
 	utils.LogMessage("New version: " + newResources.LocalVersion)
 	utils.LogMessage("Total resources: " + fmt.Sprintf("%d", len(newResources.Resources)))
+
+	// Notify developer about missing URLs if using a service
+	if isUsingService && len(missingURLs) > 0 {
+		utils.LogWarning("Found " + fmt.Sprintf("%d", len(missingURLs)) + " files with missing download URLs:")
+		for _, filename := range missingURLs {
+			utils.LogWarning("  - " + filename)
+		}
+		utils.LogWarning("These files have been placed at the bottom of the resources list.")
+		utils.LogWarning("You may need to manually add download URLs for these files.")
+	} else {
+		utils.LogMessage("You are not using any service provider, so download URLs may have been left blank.")
+		utils.LogMessage("You can rerun with the respective provider arguments to add them.")
+		utils.LogMessage("Check out the Wiki on the download provider at: https://github.com/cosmiclabstudio/cargodrop/wiki")
+	}
+
 	utils.LogMessage("Saved to: " + resourcesPath)
-	utils.LogMessage("Done!")
+	utils.LogMessage("Done! You may close this window.")
 }
 
-// generateResourceSetHash generates a hash for the entire resource set
+// sortResourcesByURL sorts resources so that entries with URLs come first, blank URLs at the bottom
+func sortResourcesByURL(resources *parsers.ResourceSet) {
+	var withURL, withoutURL []parsers.Resource
+
+	for _, resource := range resources.Resources {
+		if resource.URL != "" {
+			withURL = append(withURL, resource)
+		} else {
+			withoutURL = append(withoutURL, resource)
+		}
+	}
+
+	// Combine: URLs first, then blank URLs
+	resources.Resources = append(withURL, withoutURL...)
+}
+
 func generateResourceSetHash(resources *parsers.ResourceSet) string {
 	hash := sha1.New()
 	for _, resource := range resources.Resources {
@@ -153,7 +263,6 @@ func generateResourceSetHash(resources *parsers.ResourceSet) string {
 	return hex.EncodeToString(hash.Sum(nil))
 }
 
-// saveResourceSet saves the resource set to a JSON file
 func saveResourceSet(resources *parsers.ResourceSet, outputPath string) error {
 	data, err := json.MarshalIndent(resources, "", "  ")
 	if err != nil {
