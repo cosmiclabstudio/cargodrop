@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"flag"
+	"fmt"
 	"os"
 
 	"fyne.io/fyne/v2/app"
@@ -22,7 +23,7 @@ func main() {
 
 	config, err := parsers.LoadConfig(*configPath)
 	if err != nil {
-		utils.LogError(err)
+		fmt.Printf("Failed to load config file.")
 		return
 	}
 	utils.LogMessage("Config file: " + *configPath)
@@ -40,7 +41,7 @@ func main() {
 		// Save default resources file
 		err = saveDefaultResourceSet(resources, *resourcesPath)
 		if err != nil {
-			utils.LogError(err)
+			fmt.Printf("Failed to load resources file.")
 			return
 		}
 		utils.LogWarning("Missing resource.json! Creating one at " + *resourcesPath)
