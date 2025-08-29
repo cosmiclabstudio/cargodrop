@@ -59,30 +59,25 @@ func GetModrinthURL(hash, path string) (string, error) {
 		}
 	}(resp.Body)
 
-	// If not found (404), return empty string
 	if resp.StatusCode == http.StatusNotFound {
 		return "", nil
 	}
 
-	// Check for other non-200 status codes
 	if resp.StatusCode != http.StatusOK {
 		utils.LogError(fmt.Errorf("modrinth API returned status %d", resp.StatusCode))
 		return "", fmt.Errorf("modrinth API returned status %d", resp.StatusCode)
 	}
 
-	// Parse JSON response
 	var versionResp ModrinthVersionResponse
 	if err := json.NewDecoder(resp.Body).Decode(&versionResp); err != nil {
 		utils.LogError(fmt.Errorf("failed to decode modrinth response: %v", err))
 		return "", fmt.Errorf("failed to decode modrinth response: %v", err)
 	}
 
-	// If no files, return empty string
 	if len(versionResp.Files) == 0 {
 		return "", nil
 	}
 
-	// If only one file, return its URL
 	if len(versionResp.Files) == 1 {
 		return versionResp.Files[0].URL, nil
 	}
@@ -101,6 +96,5 @@ func GetModrinthURL(hash, path string) (string, error) {
 		}
 	}
 
-	// Fallback to first file
 	return versionResp.Files[0].URL, nil
 }
