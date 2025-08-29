@@ -181,13 +181,7 @@ jobs:
           **Commit:** ${{ steps.commit.outputs.hash }}
           **Built:** ${{ steps.commit.outputs.date }}
           
-          This is an automated development build. Download speeds are much faster than artifacts!
-          
-          **Downloads:**
-          - `cargodrop-linux-amd64` - Linux x86_64
-          - `cargodrop-windows-amd64.exe` - Windows x86_64  
-          - `cargodrop-darwin-amd64` - macOS Intel
-          - `cargodrop-darwin-arm64` - macOS Apple Silicon
+          This is an automated development build.
         files: |
           combined-builds/cargodrop-linux-amd64
           combined-builds/cargodrop-windows-amd64.exe
