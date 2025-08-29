@@ -82,26 +82,12 @@ func updatePreserveList(config *parsers.Config, resources *parsers.ResourceSet, 
 		}
 	}
 
-	// Clean up preserve list - remove entries for files that no longer exist
-	var cleanedPreserve []string
-	for _, preserved := range config.Preserve {
-		preservedPath := filepath.Join(baseDir, preserved)
-		if _, err := os.Stat(preservedPath); err == nil {
-			cleanedPreserve = append(cleanedPreserve, preserved)
-		} else {
-			utils.LogMessage("Removing non-existent file from preserve list: " + preserved)
-		}
-	}
+	// Add new preserve entries to existing listno cleanup)
+	updatedPreserve := append(config.Preserve, newPreserveEntries...)
 
-	// Add new preserve entries
-	for _, newEntry := range newPreserveEntries {
-		cleanedPreserve = append(cleanedPreserve, newEntry)
-		utils.LogMessage("Adding user-installed mod to preserve list: " + newEntry)
-	}
-
-	// Update config if preserve list changed
-	if len(cleanedPreserve) != len(config.Preserve) || !slicesEqual(cleanedPreserve, config.Preserve) {
-		config.Preserve = cleanedPreserve
+	// Update config if new entries were added
+	if len(newPreserveEntries) > 0 {
+		config.Preserve = updatedPreserve
 
 		// Save updated config
 		if err := parsers.SaveConfig(config, configPath); err != nil {
@@ -118,19 +104,6 @@ func updatePreserveList(config *parsers.Config, resources *parsers.ResourceSet, 
 	}
 
 	return false
-}
-
-// slicesEqual checks if two string slices are equal
-func slicesEqual(a, b []string) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if a[i] != b[i] {
-			return false
-		}
-	}
-	return true
 }
 
 // processPatchRemovals handles file removal patches while respecting preserve list
