@@ -3,14 +3,6 @@ package utils
 import (
 	"fmt"
 	"os"
-	"time"
-)
-
-const (
-	ColorReset  = "\033[0m"
-	ColorRed    = "\033[31m"
-	ColorYellow = "\033[33m"
-	ColorBlue   = "\033[36m"
 )
 
 var guiLogCallback func(string)
@@ -31,8 +23,7 @@ func InitializeLog() error {
 
 // LogMessage logs an info message with timestamp in blue and to GUI if set.
 func LogMessage(msg string) {
-	timestamp := time.Now().Format("2006-01-02 15:04:05")
-	formatted := fmt.Sprintf("[%s] %s", timestamp, msg)
+	formatted := fmt.Sprintf("[INFO] %s", msg)
 	if guiLogCallback != nil {
 		guiLogCallback(formatted)
 	}
@@ -41,8 +32,7 @@ func LogMessage(msg string) {
 
 // LogError logs an error message with timestamp in red and to GUI if set.
 func LogError(err error) {
-	timestamp := time.Now().Format("2006-01-02 15:04:05")
-	formatted := fmt.Sprintf("[%s] ERROR: %v", timestamp, err)
+	formatted := fmt.Sprintf("[ERROR] %v", err)
 	if guiLogCallback != nil {
 		guiLogCallback(formatted)
 	}
@@ -51,8 +41,7 @@ func LogError(err error) {
 
 // LogWarning logs a warning message with timestamp in yellow and to GUI if set.
 func LogWarning(msg string) {
-	timestamp := time.Now().Format("2006-01-02 15:04:05")
-	formatted := fmt.Sprintf("[%s] WARNING: %s", timestamp, msg)
+	formatted := fmt.Sprintf("[WARN] %s", msg)
 	if guiLogCallback != nil {
 		guiLogCallback(formatted)
 	}

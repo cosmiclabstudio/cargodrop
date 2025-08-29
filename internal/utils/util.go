@@ -26,7 +26,6 @@ func FormatSize(size int64) string {
 	}
 }
 
-// GenerateSHA1 generates SHA1 hash for a file
 func GenerateSHA1(filePath string) (string, error) {
 	file, err := os.Open(filePath)
 	if err != nil {
@@ -44,4 +43,19 @@ func GenerateSHA1(filePath string) (string, error) {
 	}
 
 	return hex.EncodeToString(hash.Sum(nil)), nil
+}
+
+// ShouldIgnore checks if a file or folder should be ignored based on ignore patterns
+// Supports advanced gitignore-like patterns including **, !, and [abc] character classes
+func ShouldIgnore(path string, ignorePatterns []string) bool {
+	matcher := NewPatternMatcher(ignorePatterns)
+
+	// Check if path is a directory by trying to stat it
+	// If we can't stat it, assume it's a file
+	isDir := false
+	if info, err := os.Stat(path); err == nil {
+		isDir = info.IsDir()
+	}
+
+	return matcher.ShouldIgnore(path, isDir)
 }

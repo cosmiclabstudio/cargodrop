@@ -12,16 +12,11 @@ type Resource struct {
 	URL  string `json:"url"`
 }
 
-type Patches struct {
-	Version string `json:"version"`
-	URL     string `json:"url"`
-}
-
 type ResourceSet struct {
 	Name            string     `json:"name"`
 	LocalVersion    string     `json:"version"`
 	ResourceSetHash string     `json:"resource_set_hash"`
-	Patches         []Patches  `json:"patches"`
+	Patches         []string   `json:"patches"`
 	Resources       []Resource `json:"resources"`
 }
 
@@ -35,4 +30,12 @@ func LoadResource(path string) (*ResourceSet, error) {
 		return nil, err
 	}
 	return &rs, nil
+}
+
+func SaveResource(rs *ResourceSet, path string) error {
+	data, err := json.MarshalIndent(rs, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, data, 0644)
 }

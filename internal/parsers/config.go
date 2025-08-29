@@ -9,7 +9,9 @@ type Config struct {
 	Name           string   `json:"name"`
 	WelcomeMessage string   `json:"welcome_message"`
 	Folders        []string `json:"folders"`
+	Ignore         []string `json:"ignore"`
 	UpdateServer   string   `json:"update_server"`
+	Preserve       []string `json:"preserve,omitempty"`
 }
 
 func LoadConfig(path string) (*Config, error) {
@@ -22,4 +24,12 @@ func LoadConfig(path string) (*Config, error) {
 		return nil, err
 	}
 	return &cfg, nil
+}
+
+func SaveConfig(cfg *Config, path string) error {
+	data, err := json.MarshalIndent(cfg, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, data, 0644)
 }
