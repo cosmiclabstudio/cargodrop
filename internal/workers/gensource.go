@@ -14,6 +14,8 @@ import (
 	"github.com/cosmiclabstudio/cargodrop/internal/utils"
 )
 
+var isUsingService = false
+
 func RunGenSourceSequence(config *parsers.Config, resources *parsers.ResourceSet, baseDir string, resourcesPath string, progressCb func(fileName string, downloadedBytes, totalBytes int64, processed, total int), errorCb func(string, error), isServiceModrinth bool) {
 	utils.GetProgramInformation()
 
@@ -23,7 +25,6 @@ func RunGenSourceSequence(config *parsers.Config, resources *parsers.ResourceSet
 	utils.LogMessage("Version: " + resources.LocalVersion)
 
 	totalFiles := 0
-	isUsingService := false
 
 	if isServiceModrinth {
 		isUsingService = true

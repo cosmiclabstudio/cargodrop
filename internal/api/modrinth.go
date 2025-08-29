@@ -3,8 +3,10 @@ package api
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"path/filepath"
+	"strings"
 
 	"github.com/cosmiclabstudio/cargodrop/internal/utils"
 )
@@ -36,6 +38,13 @@ func GetModrinthURL(hash, path string) (string, error) {
 	// Extract filename from path
 	filename := filepath.Base(path)
 
+	// Only process .zip and .jar files
+	ext := strings.ToLower(filepath.Ext(filename))
+	if ext != ".zip" && ext != ".jar" {
+		utils.LogWarning("[Modrinth API] " + filename + " is not a valid archive file. Skipping.")
+		return "", nil
+	}
+
 	// Make request to Modrinth API
 	url := fmt.Sprintf("https://api.modrinth.com/v2/version_file/%s", hash)
 	resp, err := http.Get(url)
@@ -43,7 +52,12 @@ func GetModrinthURL(hash, path string) (string, error) {
 		utils.LogError(err)
 		return "", err
 	}
-	defer resp.Body.Close()
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+
+		}
+	}(resp.Body)
 
 	// If not found (404), return empty string
 	if resp.StatusCode == http.StatusNotFound {
