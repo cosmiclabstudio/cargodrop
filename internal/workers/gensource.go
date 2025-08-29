@@ -207,6 +207,9 @@ func RunGenSourceSequence(config *parsers.Config, resources *parsers.ResourceSet
 	// Sort resources: entries with URLs first, blank URLs at the bottom
 	sortResourcesByURL(newResources)
 
+	// Generate patches by comparing old and new resources
+	generatePatches(resources, newResources)
+
 	// Generate resource set hash after sorting
 	newResources.ResourceSetHash = generateResourceSetHash(newResources)
 
@@ -271,4 +274,46 @@ func saveResourceSet(resources *parsers.ResourceSet, outputPath string) error {
 	}
 
 	return os.WriteFile(outputPath, data, 0644)
+}
+
+// generatePatches compares old and new resources to detect removed files
+// and adds them to patches list while respecting the preserve list
+func generatePatches(oldResources, newResources *parsers.ResourceSet) {
+	// Initialize patches as empty array if null to avoid JSON null values
+	if newResources.Patches == nil {
+		newResources.Patches = []string{}
+	}
+
+	// Create a map of new resource paths for quick lookup
+	newResourcePaths := make(map[string]bool)
+	for _, resource := range newResources.Resources {
+		newResourcePaths[resource.Path] = true
+	}
+
+	// Find files that were removed (exist in old but not in new)
+	var newPatches []string
+	for _, oldResource := range oldResources.Resources {
+		// Check if file is removed (not in new resources)
+		if !newResourcePaths[oldResource.Path] {
+			// Check if it's not already in patches to avoid duplicates
+			alreadyExists := false
+			for _, existingPatch := range newResources.Patches {
+				if existingPatch == oldResource.Path {
+					alreadyExists = true
+					break
+				}
+			}
+			if !alreadyExists {
+				newPatches = append(newPatches, oldResource.Path)
+				utils.LogMessage("Added to patches: " + oldResource.Path)
+			}
+		}
+	}
+
+	// Append new patches to existing ones
+	newResources.Patches = append(newResources.Patches, newPatches...)
+
+	if len(newPatches) > 0 {
+		utils.LogMessage(fmt.Sprintf("Generated %d new patches for removed files ", len(newPatches)))
+	}
 }
