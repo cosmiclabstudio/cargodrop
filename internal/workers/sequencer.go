@@ -43,7 +43,7 @@ func updatePreserveList(config *parsers.Config, resources *parsers.ResourceSet, 
 		if relPath == "." || info.IsDir() {
 			return nil
 		}
-
+    
 		// Convert to forward slashes for consistent pattern matching
 		normalizedPath := filepath.ToSlash(relPath)
 
@@ -152,8 +152,6 @@ func RunUpdateSequence(config *parsers.Config, _ *parsers.ResourceSet, baseDir s
 
 	// Scan for disabled files once at the beginning
 	disabledFilesMap := utils.ScanForDisabledFiles(baseDir, config.Folders, config.DisabledExtensions)
-
-	// Download resources.json from server FIRST
 	utils.LogMessage("Checking for updates...")
 
 	// Download to a temporary file first
@@ -269,7 +267,6 @@ func RunUpdateSequence(config *parsers.Config, _ *parsers.ResourceSet, baseDir s
 			}
 		}
 	}
-
 	// Replace the original resources.json with the downloaded one
 	if err := os.Rename(tempResourcePath, resourcePath); err != nil {
 		utils.LogWarning("Failed to update resources file: " + err.Error())

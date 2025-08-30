@@ -155,11 +155,9 @@ func RunGenSourceSequence(config *parsers.Config, resources *parsers.ResourceSet
 		if !folderMatcher.ShouldIncludePath(resourceRelPath) {
 			return nil
 		}
-
 		filename := info.Name()
 		progressCb(filename, 0, info.Size(), processedFiles, totalFiles)
 		utils.LogMessage("Processing: " + filename + " (" + utils.FormatSize(info.Size()) + ")")
-
 		hash, err := utils.GenerateSHA1(path)
 		if err != nil {
 			utils.LogError(fmt.Errorf("failed to generate hash for %s: %v", filename, err))
@@ -206,10 +204,8 @@ func RunGenSourceSequence(config *parsers.Config, resources *parsers.ResourceSet
 
 	// Sort resources: entries with URLs first, blank URLs at the bottom
 	sortResourcesByURL(newResources)
-
-	// Generate patches by comparing old and new resources
 	generatePatches(resources, newResources)
-
+  
 	// Generate resource set hash after sorting
 	newResources.ResourceSetHash = generateResourceSetHash(newResources)
 
