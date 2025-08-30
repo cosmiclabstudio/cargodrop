@@ -62,7 +62,7 @@ func main() {
 			utils.LogMessage("Generating metadata for server...")
 			workers.RunGenSourceSequence(config, resources, *baseDir, *resourcesPath, mw.UpdateProgress, mw.HandleError, *isServiceModrinth)
 		} else {
-			workers.RunUpdateSequence(config, resources, *baseDir, *resourcesPath, mw.UpdateProgress, mw.HandleError)
+			workers.RunUpdateSequence(config, resources, *baseDir, *resourcesPath, *configPath, mw.UpdateProgress, mw.HandleError)
 		}
 	}()
 

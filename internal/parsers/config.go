@@ -6,12 +6,13 @@ import (
 )
 
 type Config struct {
-	Name           string   `json:"name"`
-	WelcomeMessage string   `json:"welcome_message"`
-	Folders        []string `json:"folders"`
-	Ignore         []string `json:"ignore"`
-	UpdateServer   string   `json:"update_server"`
-	Preserve       []string `json:"preserve,omitempty"`
+	Name               string   `json:"name"`
+	WelcomeMessage     string   `json:"welcome_message"`
+	Folders            []string `json:"folders"`
+	Ignore             []string `json:"ignore"`
+	UpdateServer       string   `json:"update_server"`
+	Preserve           []string `json:"preserve,omitempty"`
+	DisabledExtensions []string `json:"disabledExtensions,omitempty"`
 }
 
 func LoadConfig(path string) (*Config, error) {
