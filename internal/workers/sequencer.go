@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/cosmiclabstudio/cargodrop/internal/parsers"
@@ -43,19 +44,22 @@ func updatePreserveList(config *parsers.Config, resources *parsers.ResourceSet, 
 			return nil
 		}
 
+		// Convert to forward slashes for consistent pattern matching
+		normalizedPath := filepath.ToSlash(relPath)
+
 		// Skip ignored files
-		if ignoreMatcher.ShouldIgnore(relPath, false) {
+		if ignoreMatcher.ShouldIgnore(normalizedPath, false) {
 			return nil
 		}
 
 		// Only consider files in included folders
-		if !folderMatcher.ShouldIncludePath(relPath) {
+		if !folderMatcher.ShouldIncludePath(normalizedPath) {
 			return nil
 		}
 
 		// If file is not in resources.json, it's user-installed
-		if !existingResources[relPath] {
-			userInstalledMods = append(userInstalledMods, relPath)
+		if !existingResources[normalizedPath] {
+			userInstalledMods = append(userInstalledMods, normalizedPath)
 		}
 
 		return nil
@@ -82,7 +86,7 @@ func updatePreserveList(config *parsers.Config, resources *parsers.ResourceSet, 
 		}
 	}
 
-	// Add new preserve entries to existing listno cleanup)
+	// Add new preserve entries to existing list (no cleanup)
 	updatedPreserve := append(config.Preserve, newPreserveEntries...)
 
 	// Update config if new entries were added
@@ -140,17 +144,16 @@ func processPatchRemovals(remoteResources *parsers.ResourceSet, config *parsers.
 }
 
 // RunUpdateSequence sequence for the app to start updating stuff
-func RunUpdateSequence(config *parsers.Config, resources *parsers.ResourceSet, baseDir string, resourcePath string, progressCb func(fileName string, downloadedBytes, totalBytes int64, processed, total int), errorCb func(string, error)) {
+func RunUpdateSequence(config *parsers.Config, _ *parsers.ResourceSet, baseDir string, resourcePath string, configPath string, progressCb func(fileName string, downloadedBytes, totalBytes int64, processed, total int), errorCb func(string, error)) {
 	utils.GetProgramInformation()
 	utils.LogMessage("Starting update: " + config.Name)
 
 	utils.LogRaw(config.WelcomeMessage)
 
-	// Update preserve list before checking for updates
-	configPath := filepath.Join(filepath.Dir(resourcePath), "cargodrop.json")
-	updatePreserveList(config, resources, baseDir, configPath)
+	// Scan for disabled files once at the beginning
+	disabledFilesMap := utils.ScanForDisabledFiles(baseDir, config.Folders, config.DisabledExtensions)
 
-	// Download resources.json from server
+	// Download resources.json from server FIRST
 	utils.LogMessage("Checking for updates...")
 
 	// Download to a temporary file first
@@ -177,14 +180,29 @@ func RunUpdateSequence(config *parsers.Config, resources *parsers.ResourceSet, b
 		return
 	}
 
-	// Process any file removals specified in patches before updating files
+	// Process any file removals specified in patches BEFORE updating preserve list
 	utils.LogMessage("Cleaning up...")
 	processPatchRemovals(remoteSet, config, baseDir)
 
+	// NOW update preserve list after patches have been processed
+	updatePreserveList(config, remoteSet, baseDir, configPath)
+
 	// Compare local files against remote resources
 	utils.LogMessage("Downloading updates...")
-	toUpdate := CheckResources(remoteSet, baseDir)
-	total := len(toUpdate)
+	toUpdate := CheckResourcesWithDisabled(remoteSet, baseDir, disabledFilesMap)
+
+	// Filter out ignored files from download list
+	ignoreMatcher := utils.NewPatternMatcher(config.Ignore)
+	var filteredToUpdate []parsers.Resource
+	for _, resource := range toUpdate {
+		if !ignoreMatcher.ShouldIgnore(resource.Path, false) {
+			filteredToUpdate = append(filteredToUpdate, resource)
+		} else {
+			utils.LogMessage("Skipping ignored file: " + resource.Path)
+		}
+	}
+
+	total := len(filteredToUpdate)
 	if total == 0 {
 		utils.LogMessage("All resources are up to date.")
 		if removeErr := os.Remove(tempResourcePath); removeErr != nil {
@@ -192,57 +210,106 @@ func RunUpdateSequence(config *parsers.Config, resources *parsers.ResourceSet, b
 		}
 		progressCb("", 0, 0, total, total)
 	} else {
-		// Helper to find remote resource by path
-		findRemote := func(path string) *parsers.Resource {
-			for _, r := range remoteSet.Resources {
-				if r.Path == path {
-					return &r
-				}
-			}
-			return nil
-		}
+		processed := 0
+		for _, resource := range filteredToUpdate {
+			processed++
 
-		for i, r := range toUpdate {
-			filename := filepath.Base(r.Path)
-			progressCb(filename, 0, r.Size, i, total)
-			remote := findRemote(r.Path)
-			if remote == nil {
-				err := fmt.Errorf("remote resource not found for %s", r.Path)
+			if resource.URL == "" {
+				utils.LogWarning("Unable to download " + filepath.Base(resource.Path) + ", download URL is empty.")
+				continue
+			}
+
+			// Create directory if needed
+			fullPath := filepath.Join(baseDir, resource.Path)
+			dir := filepath.Dir(fullPath)
+			if err := os.MkdirAll(dir, 0755); err != nil {
 				utils.LogError(err)
-				errorCb("Failed to find remote resource for "+filename, err)
+				errorCb("Failed to create directory: "+dir, err)
 				return
 			}
 
-			// Check if URL is empty
-			if remote.URL == "" {
-				utils.LogWarning("Unable to download " + filename + ", download URL is empty.")
-				continue // Skip this file and continue with the next one
+			// Check for disabled files using the pre-built map
+			actualPath, disabledSuffix := utils.CheckDisabledFile(resource.Path, disabledFilesMap, baseDir)
+
+			// Check if file already exists and has correct hash
+			if fileExists(actualPath) && hasCorrectHash(actualPath, resource.Hash) {
+				progressCb(filepath.Base(resource.Path), resource.Size, resource.Size, processed, total)
+				continue
 			}
 
-			err := DownloadFile(remote.URL, filepath.Join(baseDir, r.Path), filename, r.Size, func(fileName string, downloadedBytes, totalBytes int64) {
-				progressCb(fileName, downloadedBytes, totalBytes, i, total)
+			// If file was disabled, temporarily enable it for updating
+			var tempPath string
+			if disabledSuffix != "" {
+				tempPath = strings.TrimSuffix(actualPath, disabledSuffix)
+				utils.LogMessage("Temporarily enabling disabled file: " + filepath.Base(actualPath))
+				if err := os.Rename(actualPath, tempPath); err != nil {
+					utils.LogWarning("Failed to temporarily enable disabled file: " + err.Error())
+					tempPath = actualPath // Fall back to original path
+					disabledSuffix = ""   // Don't try to restore
+				}
+			} else {
+				tempPath = fullPath
+			}
+
+			err := DownloadFile(resource.URL, tempPath, filepath.Base(resource.Path), resource.Size, func(fileName string, downloadedBytes, totalBytes int64) {
+				progressCb(fileName, downloadedBytes, totalBytes, processed, total)
 			})
+
 			if err != nil {
 				utils.LogError(err)
-				errorCb("Failed to download "+filename, err)
+				errorCb("Download failed: "+filepath.Base(resource.Path), err)
 				return
 			}
-		}
 
-		// After successful updates, replace the local resources.json with the new one
-		if err := os.Rename(tempResourcePath, resourcePath); err != nil {
-			utils.LogWarning("Failed to update local resources file: " + err.Error())
-			if removeErr := os.Remove(tempResourcePath); removeErr != nil {
-				utils.LogWarning("Failed to clean up temp file: " + removeErr.Error())
+			// Restore disabled extension if the file was originally disabled
+			if disabledSuffix != "" {
+				if err := utils.RestoreDisabledFile(tempPath, disabledSuffix); err != nil {
+					utils.LogWarning("Failed to restore disabled state for " + filepath.Base(resource.Path))
+				}
 			}
-		} else {
-			utils.LogMessage("Resources file updated successfully.")
 		}
-
-		progressCb("", 0, 0, total, total)
-		utils.LogMessage("Done!")
 	}
 
-	time.Sleep(3 * time.Second)
-	os.Exit(0)
+	// Replace the original resources.json with the downloaded one
+	if err := os.Rename(tempResourcePath, resourcePath); err != nil {
+		utils.LogWarning("Failed to update resources file: " + err.Error())
+		if removeErr := os.Remove(tempResourcePath); removeErr != nil {
+			utils.LogWarning("Failed to clean up temp file: " + removeErr.Error())
+		}
+	}
+
+	time.Sleep(2 * time.Second)
+	utils.LogMessage("Done")
+}
+
+// fileExists checks if a file exists
+func fileExists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
+}
+
+// hasCorrectHash checks if a file has the correct hash
+func hasCorrectHash(path, expectedHash string) bool {
+	hash, err := utils.GenerateSHA1(path)
+	if err != nil {
+		return false
+	}
+	return hash == expectedHash
+}
+
+// CheckResourcesWithDisabled checks resources and handles disabled files using the pre-built map
+func CheckResourcesWithDisabled(resources *parsers.ResourceSet, baseDir string, disabledFilesMap map[string]string) []parsers.Resource {
+	var toUpdate []parsers.Resource
+
+	for _, resource := range resources.Resources {
+		// Check for disabled version using the map
+		actualPath, _ := utils.CheckDisabledFile(resource.Path, disabledFilesMap, baseDir)
+
+		// Check if file exists and has correct hash
+		if !fileExists(actualPath) || !hasCorrectHash(actualPath, resource.Hash) {
+			toUpdate = append(toUpdate, resource)
+		}
+	}
+
+	return toUpdate
 }
