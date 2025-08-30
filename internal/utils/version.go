@@ -1,7 +1,7 @@
 package utils
 
 const (
-	Version = "1.0"
+	Version = "1.2"
 )
 
 // GetFullVersionString returns the version with build hash for GUI display
@@ -11,6 +11,6 @@ func GetFullVersionString() string {
 
 func GetProgramInformation() {
 	LogMessage(GetFullVersionString())
-	LogMessage("By using this program, you agree to the License and Terms of Conditions.")
-	LogMessage("Available at https://https://github.com/cosmiclabstudio/cargodrop")
+	LogMessage("By using this program, you agree to the License that comes with the program.")
+	LogMessage("Available at https://github.com/cosmiclabstudio/cargodrop")
 }

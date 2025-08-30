@@ -118,29 +118,6 @@ jobs:
         name: cargodrop-${{ matrix.goos }}-${{ matrix.goarch }}
         path: cargodrop${{ matrix.ext }}
 
-  release:
-    needs: build
-    runs-on: ubuntu-latest
-    if: github.event_name == 'release'
-
-    steps:
-    - name: Download all artifacts
-      uses: actions/download-artifact@v4
-
-    - name: Display structure of downloaded files
-      run: ls -la
-
-    - name: Upload release assets
-      uses: softprops/action-gh-release@v1
-      with:
-        files: |
-          cargodrop-linux-amd64/cargodrop
-          cargodrop-windows-amd64/cargodrop.exe
-          cargodrop-darwin-amd64/cargodrop
-          cargodrop-darwin-arm64/cargodrop
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
   # Always create downloadable artifacts for build testing
   create-downloadable-artifacts:
     needs: build
