@@ -278,8 +278,9 @@ func RunUpdateSequence(config *parsers.Config, _ *parsers.ResourceSet, baseDir s
 		}
 	}
 
-	time.Sleep(2 * time.Second)
-	utils.LogMessage("Done")
+	utils.LogMessage("Done!")
+	time.Sleep(5 * time.Second)
+	os.Exit(0)
 }
 
 // fileExists checks if a file exists
