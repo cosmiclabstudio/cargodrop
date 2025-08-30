@@ -171,7 +171,7 @@ func RunGenSourceSequence(config *parsers.Config, resources *parsers.ResourceSet
 		if isServiceModrinth {
 			url, err = api.GetModrinthURL(hash, filename)
 			if err != nil {
-				utils.LogError(fmt.Errorf("", filename, err))
+				utils.LogError(fmt.Errorf("failed to get Modrinth URL for %s: %v", filename, err))
 				return err
 			}
 		}

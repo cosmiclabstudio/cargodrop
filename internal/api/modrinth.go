@@ -55,7 +55,7 @@ func GetModrinthURL(hash, path string) (string, error) {
 	defer func(Body io.ReadCloser) {
 		err := Body.Close()
 		if err != nil {
-
+			utils.LogError(fmt.Errorf("failed to close response body: %v", err))
 		}
 	}(resp.Body)
 
