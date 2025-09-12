@@ -48,6 +48,11 @@ func main() {
 	}
 	utils.LogMessage("Resources file: " + *resourcesPath)
 
+	err = os.Setenv("FYNE_THEME", "dark")
+	if err != nil {
+		return
+	}
+
 	a := app.New()
 	mw := gui.NewMainWindow(a, config, resources)
 

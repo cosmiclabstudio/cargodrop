@@ -1,7 +1,7 @@
 package utils
 
 const (
-	Version = "1.2"
+	Version = "1.3"
 )
 
 // GetFullVersionString returns the version with build hash for GUI display
