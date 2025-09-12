@@ -2,9 +2,9 @@ name: Build CargoDrop
 
 on:
   push:
-    branches: [ build ]
+    branches: [ main ]
   pull_request:
-    branches: [ build ]
+    branches: [ main ]
   release:
     types: [ published ]
 
